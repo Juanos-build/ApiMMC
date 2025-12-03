@@ -1,0 +1,162 @@
+{
+  "nlog": {
+    "autoReload": true,
+    "throwConfigExceptions": true,
+    "variables": {
+      "logRoot": "${configsetting:item=appSettings.logging.logFolder}",
+      "logFileName": "${configsetting:item=appSettings.logging.nameFolder}",
+      "dateFolder": "${date:format=yyyy/MMMM/dd}",
+      "jobFolder": "${scopeproperty:JobName}",
+      "basePath": "${logRoot}/${dateFolder}/${logFileName}${when:when='${jobFolder}' != '':inner=/${jobFolder}:else=/General}",
+      "internalPath": "${logRoot}/internal/${logFileName}",
+      "internalLogFile": "${internalPath}/internal.log",
+      "archiveSize": "10485760", // 10 MB
+      "maxArchiveFiles": "30"
+    },
+    "extensions": [
+      { "assembly": "NLog.Web.AspNetCore" }
+    ],
+    "internalLogFile": "${internalLogFile}",
+    "targets": {
+      "type": "AsyncWrapper",
+      "queueLimit": 5000,
+      "overflowAction": "Discard",
+      "errorFile": {
+        "type": "File",
+        "fileName": "${basePath}/${shortdate}_error.log",
+        "archiveFileName": "${basePath}/archive/error/${shortdate}.{#####}.log",
+        "archiveNumbering": "Rolling",
+        "archiveAboveSize": "${archiveSize}",
+        "maxArchiveFiles": "${maxArchiveFiles}",
+        "layout": {
+          "type": "JsonLayout",
+          "attributes": [
+            {
+              "name": "time",
+              "layout": "${longdate}"
+            },
+            {
+              "name": "level",
+              "layout": "${level:uppercase=true}"
+            },
+            {
+              "name": "jobName",
+              "layout": "${when:when='${scopeproperty:JobName}' != '':inner=${scopeproperty:JobName}}"
+            },
+            {
+              "name": "message",
+              "layout": "${message}"
+            },
+            {
+              "name": "exception",
+              "layout": "${exception:format=tostring}"
+            },
+            {
+              "name": "properties",
+              "encode": false,
+              "layout": "${jsonCamelCase:includeAllProperties=true:maxRecursionLimit=20}"
+            }
+          ]
+        }
+      },
+      "successFile": {
+        "type": "File",
+        "fileName": "${basePath}/${shortdate}_success.log",
+        "archiveFileName": "${basePath}/archive/success/${shortdate}.{#####}.log",
+        "archiveNumbering": "Rolling",
+        "archiveAboveSize": "${archiveSize}",
+        "maxArchiveFiles": "${maxArchiveFiles}",
+        "layout": {
+          "type": "JsonLayout",
+          "attributes": [
+            {
+              "name": "time",
+              "layout": "${longdate}"
+            },
+            {
+              "name": "level",
+              "layout": "${level:uppercase=true}"
+            },
+            {
+              "name": "jobName",
+              "layout": "${when:when='${scopeproperty:JobName}' != '':inner=${scopeproperty:JobName}}"
+            },
+            {
+              "name": "message",
+              "layout": "${message}"
+            },
+            {
+              "name": "properties",
+              "encode": false,
+              "layout": "${jsonCamelCase:includeAllProperties=true:maxRecursionLimit=20}"
+            }
+          ]
+        }
+      },
+      "infoFile": {
+        "type": "File",
+        "fileName": "${basePath}/${shortdate}_info.log",
+        "archiveFileName": "${basePath}/archive/info/${shortdate}.{#####}.log",
+        "archiveNumbering": "Rolling",
+        "archiveAboveSize": "${archiveSize}",
+        "maxArchiveFiles": "${maxArchiveFiles}",
+        "layout": "${longdate}|${level:uppercase=true}|${when:when='${scopeproperty:JobName}' != '':inner=${scopeproperty:JobName}|}${message}"
+      },
+      "console": {
+        "type": "Console",
+        "layout": "${longdate}|${level:uppercase=true}|${when:when='${scopeproperty:JobName}' != '':inner=${scopeproperty:JobName}|}${message}"
+      }
+    },
+    "rules": [
+      {
+        "logger": "Quartz.*",
+        "maxLevel": "Off",
+        "final": true
+      },
+      {
+        "logger": "Microsoft.*",
+        "maxLevel": "Info",
+        "final": true
+      },
+      {
+        "logger": "System.Net.Http.*",
+        "maxLevel": "Info",
+        "final": true
+      },
+      {
+        "logger": "*",
+        "filters": [
+          {
+            "type": "when",
+            "condition": "equals('${event-properties:eventType}','Success')",
+            "action": "log"
+          }
+        ],
+        "writeTo": "successFile"
+      },
+      {
+        "logger": "*",
+        "minLevel": "Error",
+        "writeTo": "errorFile"
+      },
+      {
+        "logger": "*",
+        "minLevel": "Info",
+        "maxLevel": "Warn",
+        "filters": [
+          {
+            "type": "when",
+            "condition": "not equals('${event-properties:eventType}','Success')",
+            "action": "log"
+          }
+        ],
+        "writeTo": "infoFile"
+      },
+      {
+        "logger": "*",
+        "minLevel": "Info",
+        "writeTo": "console"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+@ApiMMC_HostAddress = http://localhost:5083
+
+GET {{ApiMMC_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
