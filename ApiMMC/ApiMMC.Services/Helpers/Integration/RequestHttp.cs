@@ -114,7 +114,7 @@ namespace ApiMMC.Services.Helpers.Integration
                 {
                     ["client_id"] = service.Authentication.User,
                     ["client_secret"] = service.Authentication.Pass,
-                    ["scope"] = "https://b2cbibcomptranssgprb.onmicrosoft.com/f5b2f167-677f-4040-b60b-dd76557aa379/.default",
+                    ["scope"] = $"https://b2cbibcomptranssgprb.onmicrosoft.com/{service.Authentication.User}/.default",
                     ["grant_type"] = "client_credentials"
                 };
 

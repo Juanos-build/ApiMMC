@@ -240,7 +240,7 @@ namespace ApiMMC.Services.Services.Implementation
         private async Task<Response<string>> ProcesarYEnviarPorFronteraAsync(IProgress<ResultadoLectura> progress)
         {
             var response = new Response<string>();
-            var dateRead = DateTime.Today.AddDays(-1).Date;
+            var dateRead = DateTime.SpecifyKind(DateTime.Today.AddDays(-1).Date, DateTimeKind.Unspecified);
 
             var fronteras = _energyXM.Select(d => d.Config.BorderIdXM).Distinct().ToList();
 
@@ -334,7 +334,7 @@ namespace ApiMMC.Services.Services.Implementation
                 // Construir form-data
                 var multipart = new RequestHttp.MultipartBody
                 {
-                    Fields = new Dictionary<string, string> { { "cgm", frontera } },
+                    Fields = new Dictionary<string, string> { { "cgm", _appSettings.CGMSettings.CGM } },
                     Files =
                     [
                         new() {

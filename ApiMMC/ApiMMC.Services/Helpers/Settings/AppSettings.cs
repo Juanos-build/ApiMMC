@@ -11,6 +11,7 @@
         public NotificationSettings NotificationSettings { set; get; }
         public FileSettings FileSettings { set; get; }
         public XMSettings XmSettings { set; get; }
+        public CGMSettings CGMSettings { set; get; }
     }
 
     public class NotificationSettings
@@ -57,5 +58,10 @@
     {
         public string Method { set; get; }
         public string Value { set; get; }
+    }
+
+    public class CGMSettings
+    {
+        public string CGM { set; get; }
     }
 }
