@@ -39,6 +39,7 @@
         public string Token { get; set; }
         public string User { get; set; }
         public string Pass { get; set; }
+        public string Scope { get; set; }
     }
 
     public class IntegrationSettings

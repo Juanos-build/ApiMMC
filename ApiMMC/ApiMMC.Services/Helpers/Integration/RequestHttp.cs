@@ -1,4 +1,5 @@
 ﻿using ApiMMC.Models.Entities;
+using ApiMMC.Services.Helpers.Extension;
 using ApiMMC.Services.Helpers.Settings;
 using System.Net;
 using System.Net.Http.Headers;
@@ -45,11 +46,6 @@ namespace ApiMMC.Services.Helpers.Integration
 
         public record HybridBody(Dictionary<string, string> Query, Dictionary<string, string> Form, object Body);
 
-        public static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         public async Task<TR> CallMethod<TR>(
             string service,
             string action,
@@ -94,7 +90,7 @@ namespace ApiMMC.Services.Helpers.Integration
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"Error {response.StatusCode}: {text}");
 
-            return string.IsNullOrEmpty(text) ? default : JsonSerializer.Deserialize<TR>(text, JsonOptions);
+            return string.IsNullOrEmpty(text) ? default : JsonSerializer.Deserialize<TR>(text, ExtensionMethods.JsonOptions);
         }
 
         private async Task<string> GetAccessTokenAsync(CancellationToken ct)
@@ -114,7 +110,7 @@ namespace ApiMMC.Services.Helpers.Integration
                 {
                     ["client_id"] = service.Authentication.User,
                     ["client_secret"] = service.Authentication.Pass,
-                    ["scope"] = $"https://b2cbibcomptranssgprb.onmicrosoft.com/{service.Authentication.User}/.default",
+                    ["scope"] = service.Authentication.Scope,
                     ["grant_type"] = "client_credentials"
                 };
 
@@ -130,7 +126,7 @@ namespace ApiMMC.Services.Helpers.Integration
                 if (!response.IsSuccessStatusCode)
                     throw new Exception($"Error obteniendo token XM Lecturas: {json}");
 
-                var tokenResponse = JsonSerializer.Deserialize<XmToken>(json, JsonOptions);
+                var tokenResponse = JsonSerializer.Deserialize<XmToken>(json, ExtensionMethods.JsonOptions);
 
                 _cachedToken = tokenResponse?.AccessToken ?? throw new InvalidOperationException("Token vacío en respuesta XM");
                 _tokenExpiration = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresInSeconds - 60); // margen de seguridad
@@ -183,7 +179,7 @@ namespace ApiMMC.Services.Helpers.Integration
 
         private static StringContent AddBody(object model)
         {
-            var json = model is string s ? s : JsonSerializer.Serialize(model, JsonOptions);
+            var json = model is string s ? s : JsonSerializer.Serialize(model, ExtensionMethods.JsonOptions);
             return new StringContent(json, Encoding.UTF8, "application/json");
         }
 

@@ -27,6 +27,11 @@ namespace ApiMMC.Services.Services.Implementation
         private MeasureConfig _energyConfig = new();
         private readonly List<EnergyXm> _energyXM = [];
 
+
+        private readonly string _destTo = settings.FileSettings.FileToProcess;
+        private readonly string _destNo = settings.FileSettings.FileNoProcessed;
+        private readonly string _destProcessed = settings.FileSettings.FileProcessed;
+
         #region Lectura y Envío de Valores (public API)
 
         public async Task<Response<string>> SetEnergyRead(IProgress<ResultadoLectura> progress = null)
@@ -37,6 +42,13 @@ namespace ApiMMC.Services.Services.Implementation
                 // 1) Leer y registrar lecturas desde archivos
                 progress?.Report(new ResultadoLectura { Exito = true, Mensaje = "Inicio de lectura de archivos", DatosSolicitud = null });
                 var lecturaResults = await LeerArchivosYRegistrarAsync(progress);
+
+                if (lecturaResults == null || lecturaResults.Count == 0)
+                {
+                    _responseHelper.Warn("Proceso detenido: no hay archivos válidos para procesar.");
+                    response.Ok("Sin archivos para procesar");
+                    return response;
+                }
 
                 // 2) Agrupar y preparar datos para XM (llenar _energyXM)
                 progress?.Report(new ResultadoLectura { Exito = true, Mensaje = "Iniciando agrupación de lecturas para XM", DatosSolicitud = null });
@@ -72,7 +84,6 @@ namespace ApiMMC.Services.Services.Implementation
                 _responseHelper.Exception(response, ex);
                 progress?.Report(new ResultadoLectura { Exito = false, Mensaje = $"Error general: {ex.Message}", DatosSolicitud = null, DatosRespuesta = ex.InnerException?.Message });
             }
-
             return response;
         }
 
@@ -89,7 +100,7 @@ namespace ApiMMC.Services.Services.Implementation
         private async Task<List<LecturaArchivoResult>> LeerArchivosYRegistrarAsync(IProgress<ResultadoLectura> progress)
         {
             var resultados = new List<LecturaArchivoResult>();
-            var files = Directory.GetFiles(_appSettings.FileSettings.FileToProcess, "*.xlsx");
+            var files = Directory.GetFiles(_destTo, "*.xlsx");
 
             if (files == null || files.Length == 0)
             {
@@ -109,7 +120,7 @@ namespace ApiMMC.Services.Services.Implementation
 
                     if (string.IsNullOrEmpty(measureId))
                     {
-                        var destNo = Path.Combine(_appSettings.FileSettings.FileNoProcessed, nameFile);
+                        var destNo = Path.Combine(_destNo, nameFile);
                         ExtensionMethods.MoveFileSafe(file, destNo);
                         var msg = $"No se pudo determinar MeasureId en {nameFile}. Archivo movido a {destNo}";
                         progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = nameFile });
@@ -122,7 +133,7 @@ namespace ApiMMC.Services.Services.Implementation
 
                     if (_energyConfig.MeasureReadConfig == null || _energyConfig.EnergyConfig == null)
                     {
-                        var destNo = Path.Combine(_appSettings.FileSettings.FileNoProcessed, nameFile);
+                        var destNo = Path.Combine(_destNo, nameFile);
                         ExtensionMethods.MoveFileSafe(file, destNo);
                         var msg = $"No configuración lectura para serial {measureId}. Archivo movido a {destNo}";
                         progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = nameFile });
@@ -145,7 +156,7 @@ namespace ApiMMC.Services.Services.Implementation
                     progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"Archivo registrado en BD: {nameFile}. {dbResult.StatusMessage}", DatosSolicitud = nameFile });
 
                     // Mover archivo a processed
-                    var destProcessed = Path.Combine(_appSettings.FileSettings.FileProcessed, nameFile);
+                    var destProcessed = Path.Combine(_destProcessed, nameFile);
                     ExtensionMethods.MoveFileSafe(file, destProcessed);
                     var msgProc = $"Archivo procesado con éxito. directorio {destProcessed}";
                     progress?.Report(new ResultadoLectura { Exito = true, Mensaje = msgProc, DatosSolicitud = nameFile });
@@ -155,20 +166,19 @@ namespace ApiMMC.Services.Services.Implementation
                 }
                 catch (ResultException rex)
                 {
-                    var destNo = Path.Combine(_appSettings.FileSettings.FileNoProcessed, nameFile);
+                    var destNo = Path.Combine(_destNo, nameFile);
                     ExtensionMethods.MoveFileSafe(file, destNo);
                     _responseHelper.Error(rex, $"Resultado leyendo archivo {nameFile}");
                     progress?.Report(new ResultadoLectura { Exito = false, Mensaje = rex.Message, DatosSolicitud = nameFile, DatosRespuesta = rex.InnerException?.Message });
                 }
                 catch (Exception ex)
                 {
-                    var destNo = Path.Combine(_appSettings.FileSettings.FileNoProcessed, nameFile);
+                    var destNo = Path.Combine(_destNo, nameFile);
                     ExtensionMethods.MoveFileSafe(file, destNo);
                     _responseHelper.Error(ex, $"Error leyendo archivo {nameFile}");
                     progress?.Report(new ResultadoLectura { Exito = false, Mensaje = ex.Message, DatosSolicitud = nameFile, DatosRespuesta = ex.InnerException?.Message });
                 }
             }
-
             return resultados;
         }
 
@@ -258,34 +268,34 @@ namespace ApiMMC.Services.Services.Implementation
 
                 var archivosJson = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                foreach (var energy in energiesFor)
+                foreach (var energy in energiesFor.Select((value, index) => new { value, index }))
                 {
-                    if (string.IsNullOrEmpty(energy.Config.BorderIdXM))
+                    if (string.IsNullOrEmpty(energy.value.Config.BorderIdXM))
                     {
-                        var msg = $"Id Frontera nulo para medidor {energy.Config.MeasureId}. Se omite.";
-                        progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = energy.Config.MeasureId });
+                        var msg = $"Id Frontera nulo para medidor {energy.value.Config.MeasureId}. Se omite.";
+                        progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = energy.value.Config.MeasureId });
                         continue;
                     }
 
-                    var readItems = energy.Energies.Select(e => e.EnergyReadding).ToList();
+                    var readItems = energy.value.Energies.Select(e => e.EnergyReadding).ToList();
                     if (readItems.Count != 24)
                     {
-                        var msg = $"Medidor {energy.Config.MeasureId} no tiene 24 valores ({readItems.Count}). Se omite.";
-                        progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = energy.Config.MeasureId });
+                        var msg = $"Medidor {energy.value.Config.MeasureId} no tiene 24 valores ({readItems.Count}). Se omite.";
+                        progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = energy.value.Config.MeasureId });
                         continue;
                     }
 
                     // nombre del json (medidor + fecha)
-                    var nombreJson = $"{energy.Config.MeasureId}_{dateRead:yyyyMMdd}.json";
+                    var nombreJson = $"reportelecturas{energy.index}.json";
                     // usar extension methods para generar el json (validará 24 valores)
-                    var json = ExtensionMethods.CrearJsonLecturas(energy.Config.BorderIdXM, dateRead, readItems);
+                    var json = ExtensionMethods.CrearJsonLecturas(energy.value.Config.BorderIdXM, dateRead, readItems);
                     archivosJson[nombreJson] = json;
 
                     progress?.Report(new ResultadoLectura
                     {
                         Exito = true,
-                        Mensaje = $"JSON preparado para medidor {energy.Config.MeasureId}: {nombreJson}",
-                        DatosSolicitud = energy.Config.MeasureId
+                        Mensaje = $"JSON preparado para medidor {energy.value.Config.MeasureId}: {nombreJson}",
+                        DatosSolicitud = energy.value.Config.MeasureId
                     });
                 }
 
@@ -331,6 +341,10 @@ namespace ApiMMC.Services.Services.Implementation
                     continue;
                 }
 
+                // persistir archivo
+
+                File.WriteAllBytes($"{_destProcessed}/reportelecturas_{frontera}_{dateRead:yyyyMMdd}.zip", zipBytes);
+
                 // Construir form-data
                 var multipart = new RequestHttp.MultipartBody
                 {
@@ -339,7 +353,7 @@ namespace ApiMMC.Services.Services.Implementation
                     [
                         new() {
                             FieldName = "ArchivoZip",
-                            FileName = $"reportelecturas_{frontera}_{dateRead:yyyyMMdd}.zip",
+                            FileName = $"reportelecturas.zip",
                             ContentType = "application/zip",
                             Bytes = zipBytes
                         }
@@ -367,8 +381,8 @@ namespace ApiMMC.Services.Services.Implementation
                         continue;
                     }
 
-                    var msg = $"XM devolvió mensaje para {frontera}: {result.Mensaje}";
-                    progress?.Report(new ResultadoLectura { Exito = false, Mensaje = msg, DatosSolicitud = frontera, DatosRespuesta = result.Mensaje });
+                    var msg = $"XM devolvió mensaje para {frontera}: {result.Mensaje}. idMensaje [{result.IdMensaje}]";
+                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = msg, DatosSolicitud = frontera, DatosRespuesta = result.Mensaje });
 
                 }
                 catch (Exception exSend)
@@ -387,7 +401,7 @@ namespace ApiMMC.Services.Services.Implementation
                         ProccessIdXM = result.IdMensaje,
                         Date = dateRead.ToString("yyyy-MM-dd HH:mm:ss"),
                         NameFile = string.Join('|', archivosJson.Keys),
-                        DatoEnviado = JsonSerializer.Serialize(archivosJson)
+                        DatoEnviado = JsonSerializer.Serialize(archivosJson, ExtensionMethods.JsonOptions)
                     };
 
                     var dbResp = await _objTransaction.SetProccessXM(proccessXM);
@@ -511,9 +525,20 @@ namespace ApiMMC.Services.Services.Implementation
                 var result = await ConsultarEstadoXmAsync(request.ProccessIdXM);
                 var msg = $"respuesta proceso XM: {result.IdMensaje}";
                 _responseHelper.Info(msg);
-                progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM responded for id {request.ProccessIdXM}", DatosSolicitud = request.ProccessIdXM, DatosRespuesta = JsonSerializer.Serialize(result) });
 
-                request.Respuesta = result.DetallesSolicitud?.FirstOrDefault()?.Estado;
+                var datosRespuesta = JsonSerializer.Serialize(result, ExtensionMethods.JsonOptions);
+
+                // Evaluar respuesta XM
+                if (result?.DetallesSolicitud?.FirstOrDefault().Estado == "ProcesadoSinErrores")
+                {
+                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM responded for id {request.ProccessIdXM}: {result?.DetallesSolicitud?.FirstOrDefault().Estado}" });
+                }
+                else
+                {
+                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM responded for id {request.ProccessIdXM}", DatosSolicitud = request.ProccessIdXM, DatosRespuesta = datosRespuesta });
+                }
+
+                request.Respuesta = datosRespuesta;
                 request.EstadoConsulta = 1;
                 var dataDb = await _objTransaction.UpdateProccessXM(request);
                 var msgDb = $"registro proceso XM en base de datos: {dataDb.StatusMessage}";

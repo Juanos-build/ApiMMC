@@ -1,9 +1,9 @@
 ﻿using ApiMMC.Models.Entities;
-using ApiMMC.Services.Helpers.Integration;
 using ApiMMC.Services.Helpers.Settings;
 using SpreadsheetLight;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ApiMMC.Services.Helpers.Extension
 {
@@ -109,7 +109,7 @@ namespace ApiMMC.Services.Helpers.Extension
 
                 result.Add(new EnergyConfig
                 {
-                    EnergyReadding = read ?? 0,
+                    EnergyReadding = Math.Round(read ?? 0m, 5),
                     MeasureId = config.MeasureId,
                     BorderIdXM = config.BorderIdXM,
                     MesaurerType = config.MesaurerType,
@@ -131,7 +131,7 @@ namespace ApiMMC.Services.Helpers.Extension
             {
                 FrtID = frtId,
                 Inicio = fecha.Date.AddHours(0),      // 00:00
-                Fin = fecha.Date.AddDays(1).AddSeconds(-1), // 23:59:59
+                Fin = fecha.Date.AddDays(1), //.AddSeconds(-1), // 23:59:59
                 Valores = [.. valores
                     .Select((v, i) => new XmLecturaValor
                     {
@@ -141,7 +141,7 @@ namespace ApiMMC.Services.Helpers.Extension
             };
 
             var lista = new List<XmLecturaJson> { archivo };
-            return JsonSerializer.Serialize(lista, RequestHttp.JsonOptions);
+            return JsonSerializer.Serialize(lista, JsonOptions);
         }
 
         public static byte[] CrearZipLecturasMultiple(Dictionary<string, string> jsonPorNombre)
@@ -165,5 +165,15 @@ namespace ApiMMC.Services.Helpers.Extension
 
             return memoria.ToArray();
         }
+
+        public static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = false
+        };
     }
 }
