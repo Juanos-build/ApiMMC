@@ -32,6 +32,8 @@ namespace ApiMMC.Services.Services.Implementation
         private readonly string _destNo = settings.FileSettings.FileNoProcessed;
         private readonly string _destProcessed = settings.FileSettings.FileProcessed;
 
+        private const string ProcesadoSinErrores = "ProcesadoSinErrores";
+
         #region Lectura y Envío de Valores (public API)
 
         public async Task<Response<string>> SetEnergyRead(IProgress<ResultadoLectura> progress = null)
@@ -526,16 +528,20 @@ namespace ApiMMC.Services.Services.Implementation
                 var msg = $"respuesta proceso XM: {result.IdMensaje}";
                 _responseHelper.Info(msg);
 
+                var detalle = result?.DetallesSolicitud?.FirstOrDefault();
+                var estado = detalle?.Estado ?? "SIN_ESTADO";
+                var descripcion = detalle?.Descripcion ?? string.Empty;
+
                 var datosRespuesta = JsonSerializer.Serialize(result, ExtensionMethods.JsonOptions);
 
                 // Evaluar respuesta XM
-                if (result?.DetallesSolicitud?.FirstOrDefault().Estado == "ProcesadoSinErrores")
+                if (estado == ProcesadoSinErrores)
                 {
-                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM responded for id {request.ProccessIdXM}: {result?.DetallesSolicitud?.FirstOrDefault().Estado}" });
+                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM OK respuesta para idMensaje {request.ProccessIdXM} | Estado: {estado} | Descripcion: {descripcion}" });
                 }
                 else
                 {
-                    progress?.Report(new ResultadoLectura { Exito = true, Mensaje = $"XM responded for id {request.ProccessIdXM}", DatosSolicitud = request.ProccessIdXM, DatosRespuesta = datosRespuesta });
+                    progress?.Report(new ResultadoLectura { Exito = false, Mensaje = $"XM CON NOVEDAD respuesta para idMensaje {request.ProccessIdXM} | Estado: {estado} | Descripcion: {descripcion}", DatosSolicitud = request.ProccessIdXM, DatosRespuesta = datosRespuesta });
                 }
 
                 request.Respuesta = datosRespuesta;
