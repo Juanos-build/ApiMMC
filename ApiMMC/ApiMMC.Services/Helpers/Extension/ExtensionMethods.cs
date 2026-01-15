@@ -122,16 +122,17 @@ namespace ApiMMC.Services.Helpers.Extension
             return result;
         }
 
-        public static string CrearJsonLecturas(string frtId, DateTime fecha, List<decimal> valores)
+        public static string CrearJsonLecturas(EnergyConfigExtend config, DateTime fecha, List<decimal> valores)
         {
             if (valores == null || valores.Count != 24)
-                throw new Exception($"La frontera {frtId} debe tener exactamente 24 valores. Tiene {valores?.Count ?? 0}");
+                throw new Exception($"La frontera {config.BorderIdXM} debe tener exactamente 24 valores. Tiene {valores?.Count ?? 0}");
 
             var archivo = new XmLecturaJson
             {
-                FrtID = frtId,
+                FrtID = config.BorderIdXM,
                 Inicio = fecha.Date.AddHours(0),      // 00:00
                 Fin = fecha.Date.AddDays(1), //.AddSeconds(-1), // 23:59:59
+                Tipo = config.MesaurerType == 0 ? "Principal" : "Respaldo",
                 Valores = [.. valores
                     .Select((v, i) => new XmLecturaValor
                     {

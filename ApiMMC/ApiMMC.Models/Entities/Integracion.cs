@@ -19,7 +19,7 @@ namespace ApiMMC.Models.Entities
         public string FrtID { get; set; } // BorderIdXM
 
         [JsonPropertyName("tipo")]
-        public string Tipo { get; set; } = "SR";
+        public string Tipo { get; set; } = "SR"; // principal o repaldo
 
         [JsonPropertyName("duracion")]
         public string Duracion { get; set; } = "D";
