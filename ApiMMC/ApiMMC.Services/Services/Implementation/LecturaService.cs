@@ -270,7 +270,7 @@ namespace ApiMMC.Services.Services.Implementation
 
                 var archivosJson = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                foreach (var energy in energiesFor.Select((value, index) => new { value, index }))
+                foreach (var energy in energiesFor.Select((value, index) => new { value, index = index + 1 }))
                 {
                     if (string.IsNullOrEmpty(energy.value.Config.BorderIdXM))
                     {
