@@ -132,7 +132,7 @@ namespace ApiMMC.Services.Helpers.Extension
                 FrtID = config.BorderIdXM,
                 Inicio = fecha.Date.AddHours(0),      // 00:00
                 Fin = fecha.Date.AddDays(1), //.AddSeconds(-1), // 23:59:59
-                Tipo = config.MesaurerType == 0 ? "Principal" : "Respaldo",
+                Tipo = config.MesaurerType == 0 ? "P" : "R", //"Principal" y "Respaldo"
                 Valores = [.. valores
                     .Select((v, i) => new XmLecturaValor
                     {
