@@ -211,7 +211,7 @@ namespace ApiMMC.Services.Services.Implementation
                     // generar JSON
                     var readItems = energy.Energies.Select(e => e.EnergyReadding).ToList();
                     var json = ExtensionMethods.CrearJsonLecturas(
-                        frtId: energy.Config.BorderIdXM,
+                        config: energy.Config,
                         fecha: dateRead,
                         valores: readItems
                     );

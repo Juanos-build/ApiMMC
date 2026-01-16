@@ -290,7 +290,7 @@ namespace ApiMMC.Services.Services.Implementation
                     // nombre del json (medidor + fecha)
                     var nombreJson = $"reportelecturas{energy.index}.json";
                     // usar extension methods para generar el json (validará 24 valores)
-                    var json = ExtensionMethods.CrearJsonLecturas(energy.value.Config.BorderIdXM, dateRead, readItems);
+                    var json = ExtensionMethods.CrearJsonLecturas(energy.value.Config, dateRead, readItems);
                     archivosJson[nombreJson] = json;
 
                     progress?.Report(new ResultadoLectura
